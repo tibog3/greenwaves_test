@@ -85,18 +85,21 @@ void cluster_addition(void *arg)
         printf("Core %d : Transfer Matrix 2 done.\n", coreid);
     }
 
-    start = (coreid * (size / pi_cl_cluster_nb_pe_cores()));
-    end = (start - 1 + (size / pi_cl_cluster_nb_pe_cores()));
+    start = (coreid * (MAT_SIZE * MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
+    end = (start  + (MAT_SIZE* MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
 
     /* Barrier synchronisation before starting to compute. */
     pi_cl_team_barrier(0);
 
 
-    /* Operation : Each core computes on specific portion of buffer. */
+    /* Operation addition: Each core computes on specific portion of buffer. */
+    for (uint32_t i=start; i<end; i++)
+    {
+        l1_in1[i] += l1_in2[i];
+    }
 
-
-
-
+    uint32_t core_id = pi_core_id(), cluster_id = pi_cluster_id();
+    printf("[%d %d] Hello World!\n", start, end);
 
     /* Barrier synchronisation to wait for all cores. */
     pi_cl_team_barrier(0);
@@ -111,7 +114,7 @@ void cluster_addition(void *arg)
         copy.size = size;
         copy.id = 0;
         copy.ext = (uint32_t) l2_out;
-        copy.loc = (uint32_t) l1_out;
+        copy.loc = (uint32_t) l1_in1;
 
         pi_cl_dma_memcpy(&copy);
         pi_cl_dma_wait(&copy);
@@ -152,7 +155,7 @@ void test_cluster_operation(void)
     {
         l2_in1[i] = i;
         l2_in2[i] = 2;
-        l2_out[i] = 0;
+        l2_out[i] = 1;
     }
     
 
@@ -199,9 +202,7 @@ void test_cluster_operation(void)
     pi_cluster_send_task_to_cl(&cluster_dev, task);
 
 
-    mat_display(l2_in2);
-
-    pi_l2_free(task, sizeof(struct pi_cluster_task));
+    //pi_l2_free(task, sizeof(struct pi_cluster_task));
 
     pi_cl_l1_free(&cluster_dev, l1_in1, m_size);
     pi_cl_l1_free(&cluster_dev, l1_in2, m_size);
@@ -211,12 +212,13 @@ void test_cluster_operation(void)
     pi_cluster_close(&cluster_dev);
 
 
-    
+    mat_display(l2_out);
+
     pi_l2_free(l2_out, m_size);
     pi_l2_free(l2_in1, m_size);
     pi_l2_free(l2_in2, m_size);
 
-    printf("\nCluster operation done %2u!\n", *l2_in2);
+    printf("\nCluster operation done !\n");
 
     pmsis_exit(0);
 }
