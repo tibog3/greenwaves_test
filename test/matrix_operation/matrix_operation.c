@@ -2,7 +2,7 @@
 #include "pmsis.h"
 
 /* Variables used. */
-#define MAT_SIZE ( 64 )
+#define MAT_SIZE ( 80 )
 
 struct cl_args_s
 {
@@ -95,7 +95,20 @@ void cluster_addition(void *arg)
     /* Operation addition: Each core computes on specific portion of buffer. */
     for (uint32_t i=start; i<end; i++)
     {
-        l1_in1[i] += l1_in2[i];
+        l1_out[i] = l1_in2[i];
+        l1_out[i] = 0;
+    }
+
+    start = (coreid * (MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
+    end = (start  + (MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
+
+    /* Operation multiplication: Each core computes on specific portion of buffer. */
+    for(int k = 0; k<MAT_SIZE; k++){
+        for(int i = start; i<end; i++){
+            for(int j = 0; j<MAT_SIZE; j++){
+                l1_out[MAT_SIZE*i+j] += l1_in1[MAT_SIZE*i+k] * l1_in2[MAT_SIZE*k+j]; 
+            }
+        }
     }
 
     uint32_t core_id = pi_core_id(), cluster_id = pi_cluster_id();
@@ -114,7 +127,7 @@ void cluster_addition(void *arg)
         copy.size = size;
         copy.id = 0;
         copy.ext = (uint32_t) l2_out;
-        copy.loc = (uint32_t) l1_in1;
+        copy.loc = (uint32_t) l1_out;
 
         pi_cl_dma_memcpy(&copy);
         pi_cl_dma_wait(&copy);
@@ -153,8 +166,8 @@ void test_cluster_operation(void)
     /* Matrix Init. */
     for (uint32_t i=0; i<(MAT_SIZE*MAT_SIZE); i++)
     {
-        l2_in1[i] = i;
-        l2_in2[i] = 2;
+        l2_in1[i] = 1;
+        l2_in2[i] = i%8;
         l2_out[i] = 1;
     }
     
