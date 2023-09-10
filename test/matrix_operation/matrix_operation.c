@@ -2,8 +2,9 @@
 #include "pmsis.h"
 
 /* Variables used. */
-#define MAT_SIZE ( 64 )
+#define MAT_SIZE (64)
 
+/*argument to be sent to the cluster to execute task*/
 struct cl_args_s
 {
     uint32_t size;
@@ -18,36 +19,37 @@ struct cl_args_s
 
 PI_L2 static struct cl_args_s cl_arg;
 
+/*Display a matrix in terminal*/
 void mat_display(unsigned short *A)
 {
-  int i,j,t=0;
+    int i, j, t = 0;
 
-  printf("      ");
-  for(j=0;j<MAT_SIZE;j++)
-    printf("%i ",j);
-  printf("\n");
-  printf("    __");
-  for(j=0;j<MAT_SIZE;j++)
-    printf("____");
-  printf("_\n");
+    printf("      ");
+    for (j = 0; j < MAT_SIZE; j++)
+        printf("%i ", j);
+    printf("\n");
+    printf("    __");
+    for (j = 0; j < MAT_SIZE; j++)
+        printf("____");
+    printf("_\n");
 
-  for(i=0;i<MAT_SIZE;i++)
+    for (i = 0; i < MAT_SIZE; i++)
     {
-      printf("%i | ",i);
-      for(j=0;j<MAT_SIZE;j++)
-      printf("%2u ",A[t++]);
-      printf("|\n");
+        printf("%i | ", i);
+        for (j = 0; j < MAT_SIZE; j++)
+            printf("%2u ", A[t++]);
+        printf("|\n");
     }
-  printf("    --");
-  for(j=0;j<MAT_SIZE;j++)
-    printf("----");
-  printf("-\n");
+    printf("    --");
+    for (j = 0; j < MAT_SIZE; j++)
+        printf("----");
+    printf("-\n");
 }
 
-
+/*FUntion implementing addition of tow matrices*/
 void cluster_addition(void *arg)
 {
-    struct cl_args_s *op_args = (struct cl_args_s *) arg;
+    struct cl_args_s *op_args = (struct cl_args_s *)arg;
     unsigned short *l1_in1 = op_args->l1_in1;
     unsigned short *l1_in2 = op_args->l1_in2;
     unsigned short *l1_out = op_args->l1_out;
@@ -66,35 +68,34 @@ void cluster_addition(void *arg)
         copy.merge = 0;
         copy.size = size;
         copy.id = 0;
-        copy.ext = (uint32_t) l2_in1;
-        copy.loc = (uint32_t) l1_in1;
+        copy.ext = (uint32_t)l2_in1;
+        copy.loc = (uint32_t)l1_in1;
 
         pi_cl_dma_memcpy(&copy);
         pi_cl_dma_wait(&copy);
         printf("Core %d : Transfer Matrix 1 done.\n", coreid);
 
-
         copy.dir = PI_CL_DMA_DIR_EXT2LOC;
         copy.merge = 0;
         copy.size = size;
         copy.id = 0;
-        copy.ext = (uint32_t) l2_in2;
-        copy.loc = (uint32_t) l1_in2;
+        copy.ext = (uint32_t)l2_in2;
+        copy.loc = (uint32_t)l1_in2;
 
         pi_cl_dma_memcpy(&copy);
         pi_cl_dma_wait(&copy);
         printf("Core %d : Transfer Matrix 2 done.\n", coreid);
     }
 
+    /*Distributing the work bitween cores*/
     start = (coreid * (MAT_SIZE * MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
-    end = (start  + (MAT_SIZE* MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
+    end = (start + (MAT_SIZE * MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
 
     /* Barrier synchronisation before starting to compute. */
     pi_cl_team_barrier(0);
 
-
     /* Operation addition: Each core computes on specific portion of buffer. */
-    for (uint32_t i=start; i<end; i++)
+    for (uint32_t i = start; i < end; i++)
     {
         l1_in1[i] += l1_in2[i];
     }
@@ -111,8 +112,8 @@ void cluster_addition(void *arg)
         copy.merge = 0;
         copy.size = size;
         copy.id = 0;
-        copy.ext = (uint32_t) l2_out;
-        copy.loc = (uint32_t) l1_out;
+        copy.ext = (uint32_t)l2_out;
+        copy.loc = (uint32_t)l1_out;
 
         pi_cl_dma_memcpy(&copy);
         pi_cl_dma_wait(&copy);
@@ -123,7 +124,7 @@ void cluster_addition(void *arg)
 /* Task executed by cluster cores. */
 void cluster_multiplication(void *arg)
 {
-    struct cl_args_s *op_args = (struct cl_args_s *) arg;
+    struct cl_args_s *op_args = (struct cl_args_s *)arg;
     unsigned short *l1_in1 = op_args->l1_in1;
     unsigned short *l1_in2 = op_args->l1_in2;
     unsigned short *l1_out = op_args->l1_out;
@@ -143,20 +144,19 @@ void cluster_multiplication(void *arg)
         copy.merge = 0;
         copy.size = size;
         copy.id = 0;
-        copy.ext = (uint32_t) l2_in1;
-        copy.loc = (uint32_t) l1_in1;
+        copy.ext = (uint32_t)l2_in1;
+        copy.loc = (uint32_t)l1_in1;
 
         pi_cl_dma_memcpy(&copy);
         pi_cl_dma_wait(&copy);
         printf("Core %d : Transfer Matrix 1 done.\n", coreid);
 
-
         copy.dir = PI_CL_DMA_DIR_EXT2LOC;
         copy.merge = 0;
         copy.size = size;
         copy.id = 0;
-        copy.ext = (uint32_t) l2_in2;
-        copy.loc = (uint32_t) l1_in2;
+        copy.ext = (uint32_t)l2_in2;
+        copy.loc = (uint32_t)l1_in2;
 
         pi_cl_dma_memcpy(&copy);
         pi_cl_dma_wait(&copy);
@@ -164,81 +164,93 @@ void cluster_multiplication(void *arg)
     }
 
     start = (coreid * (MAT_SIZE * MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
-    end = (start  + (MAT_SIZE * MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
+    end = (start + (MAT_SIZE * MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
 
     /* Barrier synchronisation before starting to compute. */
     pi_cl_team_barrier(0);
 
-
     /* Set output to 0. */
-    for (uint32_t i=start; i<end; i++)
+    for (uint32_t i = start; i < end; i++)
     {
         l1_out[i] = 0;
     }
 
     start = (coreid * (MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
-    end = (start  + (MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
+    end = (start + (MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
 
     /* Operation multiplication: Each core computes on specific portion of buffer. */
-    for(int k = 0; k<MAT_SIZE; k++){
-        for(int i = start; i<end; i++){
-            for(int j = 0; j<MAT_SIZE; j++){
-                l1_out[MAT_SIZE*i+j] += l1_in1[MAT_SIZE*i+k] * l1_in2[MAT_SIZE*k+j]; 
+    for (int k = 0; k < MAT_SIZE; k++)
+    {
+        for (int i = start; i < end; i++)
+        {
+            for (int j = 0; j < MAT_SIZE; j++)
+            {
+                l1_out[MAT_SIZE * i + j] += l1_in1[MAT_SIZE * i + k] * l1_in2[MAT_SIZE * k + j];
             }
         }
     }
 
     pi_cl_team_barrier(0);
 
-    /* Convolution, apply mask*/
-    for(uint16_t i = start; i<end; i++){
-        for(uint16_t j=0; j<MAT_SIZE; j++){
-            if(j>0 && j<MAT_SIZE-1){
+    /* Convolution, apply mask - 0 padding*/
+    for (uint16_t i = start; i < end; i++)
+    {
+        for (uint16_t j = 0; j < MAT_SIZE; j++)
+        {
+            if (j > 0 && j < MAT_SIZE - 1)
+            {
                 // normal
-                l1_in1[MAT_SIZE*i+j] = l1_out[MAT_SIZE*i+j-1] + 2 * l1_out[MAT_SIZE*i+j] + l1_out[MAT_SIZE*i+j+1];
+                l1_in1[MAT_SIZE * i + j] = l1_out[MAT_SIZE * i + j - 1] + 2 * l1_out[MAT_SIZE * i + j] + l1_out[MAT_SIZE * i + j + 1];
             }
-            else if (j==0){
-                l1_in1[MAT_SIZE*i+j] = 2 * l1_out[MAT_SIZE*i+j] + l1_out[MAT_SIZE*i+j+1];
+            else if (j == 0)
+            {
+                // padd with 0 on the left
+                l1_in1[MAT_SIZE * i + j] = 2 * l1_out[MAT_SIZE * i + j] + l1_out[MAT_SIZE * i + j + 1];
             }
-            else{
-                l1_in1[MAT_SIZE*i+j] = l1_out[MAT_SIZE*i+j-1] + 2 * l1_out[MAT_SIZE*i+j];
+            else
+            {
+                // padd with 0 on the right
+                l1_in1[MAT_SIZE * i + j] = l1_out[MAT_SIZE * i + j - 1] + 2 * l1_out[MAT_SIZE * i + j];
             }
-            
-            
         }
     }
     /* Barrier synchronisation to wait for all cores. */
     pi_cl_team_barrier(0);
     // result of convolution
-    for(uint16_t i = start; i<end; i++){
-        for(uint16_t j=0; j<MAT_SIZE; j++){
-            if(i>0 && i<MAT_SIZE-1){
+    for (uint16_t i = start; i < end; i++)
+    {
+        for (uint16_t j = 0; j < MAT_SIZE; j++)
+        {
+            if (i > 0 && i < MAT_SIZE - 1)
+            {
                 // normal
-                l1_in2[MAT_SIZE*i+j] = l1_in1[MAT_SIZE*(i+1)+j] - l1_in1[MAT_SIZE*(i-1)+j];
+                l1_in2[MAT_SIZE * i + j] = l1_in1[MAT_SIZE * (i + 1) + j] - l1_in1[MAT_SIZE * (i - 1) + j];
             }
-            else if (i==0){
-                l1_in2[MAT_SIZE*i+j] = l1_in1[MAT_SIZE*(i+1)+j];
+            else if (i == 0)
+            {
+                // padd with 0 up
+                l1_in2[MAT_SIZE * i + j] = l1_in1[MAT_SIZE * (i + 1) + j];
             }
-            else{
-                l1_in2[MAT_SIZE*i+j] = (-l1_in1[MAT_SIZE*(i-1)+j]);
+            else
+            {
+                // padd with 0 down
+                l1_in2[MAT_SIZE * i + j] = (-l1_in1[MAT_SIZE * (i - 1) + j]);
             }
-            
-            
         }
     }
     pi_cl_team_barrier(0);
     /* Core 0 of cluster initiates DMA transfer from L1 to L2. */
     if (!coreid)
     {
-        
+
         printf("Core %d requesting DMA transfer from l1_buffer to l2_out.\n", coreid);
         pi_cl_dma_copy_t copy;
         copy.dir = PI_CL_DMA_DIR_LOC2EXT;
         copy.merge = 0;
         copy.size = size;
         copy.id = 0;
-        copy.ext = (uint32_t) l2_out;
-        copy.loc = (uint32_t) l1_out;
+        copy.ext = (uint32_t)l2_out;
+        copy.loc = (uint32_t)l1_out;
 
         pi_cl_dma_memcpy(&copy);
         pi_cl_dma_wait(&copy);
@@ -248,8 +260,8 @@ void cluster_multiplication(void *arg)
         copy.merge = 0;
         copy.size = size;
         copy.id = 0;
-        copy.ext = (uint32_t) l2_conv;
-        copy.loc = (uint32_t) l1_in2;
+        copy.ext = (uint32_t)l2_conv;
+        copy.loc = (uint32_t)l1_in2;
 
         pi_cl_dma_memcpy(&copy);
         pi_cl_dma_wait(&copy);
@@ -273,12 +285,12 @@ void test_cluster_operation(void)
     struct pi_cluster_conf conf;
 
     uint32_t nb_cl_pe_cores = pi_cl_cluster_nb_pe_cores();
- 
-    uint32_t m_size = (uint32_t) (MAT_SIZE * MAT_SIZE * sizeof(unsigned short));
-    unsigned short *l2_in1 = pi_l2_malloc(m_size);
-    unsigned short *l2_in2 = pi_l2_malloc(m_size);
-    unsigned short *l2_out = pi_l2_malloc(m_size);
-    unsigned short *l2_conv = pi_l2_malloc(m_size);
+
+    uint32_t m_size = (uint32_t)(MAT_SIZE * MAT_SIZE * sizeof(unsigned short));
+    unsigned short *l2_in1 = pi_l2_malloc(m_size);  // first matrix
+    unsigned short *l2_in2 = pi_l2_malloc(m_size);  // second matrix
+    unsigned short *l2_out = pi_l2_malloc(m_size);  // result of product (or addition)
+    unsigned short *l2_conv = pi_l2_malloc(m_size); // result of convolution applied on product
 
     if (l2_in1 == NULL || l2_in2 == NULL || l2_out == NULL || l2_conv == NULL)
     {
@@ -287,17 +299,15 @@ void test_cluster_operation(void)
     }
 
     /* Matrix Init. */
-    for (uint32_t i=0; i<(MAT_SIZE*MAT_SIZE); i++)
+    for (uint32_t i = 0; i < (MAT_SIZE * MAT_SIZE); i++)
     {
         l2_in1[i] = 1;
-        l2_in2[i] = i%43;
-        l2_out[i] = 1;
+        l2_in2[i] = i % MAT_SIZE;
     }
-    
 
     /* Init cluster configuration structure. */
     pi_cluster_conf_init(&conf);
-    conf.id = 0;                /* Set cluster ID. */
+    conf.id = 0; /* Set cluster ID. */
     /* Configure & open cluster. */
     pi_open_from_conf(&cluster_dev, &conf);
     if (pi_cluster_open(&cluster_dev))
@@ -306,6 +316,10 @@ void test_cluster_operation(void)
         pmsis_exit(-3);
     }
 
+    /*
+    Allocate memory in L1 for the tow matrix and the result of the multiplication
+    Same are used for convolution
+     */
     unsigned short *l1_in1 = pi_cl_l1_malloc(&cluster_dev, m_size);
     unsigned short *l1_in2 = pi_cl_l1_malloc(&cluster_dev, m_size);
     unsigned short *l1_out = pi_cl_l1_malloc(&cluster_dev, m_size);
@@ -333,13 +347,12 @@ void test_cluster_operation(void)
         pi_cluster_close(&cluster_dev);
         pmsis_exit(-4);
     }
-    
+
     pi_cluster_task(task, master_entry, &cl_arg);
     printf("Sending task.\n");
     pi_cluster_send_task_to_cl(&cluster_dev, task);
 
-
-    //pi_l2_free(task, sizeof(struct pi_cluster_task));
+    pi_l2_free(task, sizeof(struct pi_cluster_task));
 
     pi_cl_l1_free(&cluster_dev, l1_in1, m_size);
     pi_cl_l1_free(&cluster_dev, l1_in2, m_size);
@@ -348,13 +361,13 @@ void test_cluster_operation(void)
     printf("Close cluster after end of computation.\n");
     pi_cluster_close(&cluster_dev);
 
-
-    mat_display(l2_out);
-    mat_display(l2_conv);
+    mat_display(l2_out);  // disp result of multiplication
+    mat_display(l2_conv); // disp result of convolution
 
     pi_l2_free(l2_out, m_size);
     pi_l2_free(l2_in1, m_size);
     pi_l2_free(l2_in2, m_size);
+    pi_l2_free(l2_conv, m_size);
 
     printf("\nCluster operation done !\n");
 
@@ -365,5 +378,5 @@ void test_cluster_operation(void)
 int main(void)
 {
     printf("\n\n\t *** PMSIS Cluster operation ***\n\n");
-    return pmsis_kickoff((void *) test_cluster_operation);
+    return pmsis_kickoff((void *)test_cluster_operation);
 }

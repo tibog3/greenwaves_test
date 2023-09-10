@@ -23,6 +23,8 @@ void helloworld(void)
 
     uint32_t errors = 0;
     uint32_t core_id = pi_core_id(), cluster_id = pi_cluster_id();
+
+    /*Hello World from main core*/
     printf("[%d %d] Hello World!\n", cluster_id, core_id);
 
     struct pi_device cluster_dev;
