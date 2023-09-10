@@ -2,7 +2,9 @@
 #include "pmsis.h"
 
 /* Variables used. */
-#define MAT_SIZE (128)
+#ifndef MAT_SIZE
+#define MAT_SIZE (64)
+#endif
 
 struct cl_args_s
 {
@@ -14,6 +16,7 @@ struct cl_args_s
     unsigned short *l2_in2;
     unsigned short *l2_out;
     unsigned short *l2_conv;
+    uint16_t nb_block;
 };
 
 PI_L2 static struct cl_args_s cl_arg;
@@ -100,7 +103,7 @@ void cluster_addition(void *arg)
     unsigned short *l2_conv = op_args->l2_conv;
     uint32_t size_block = op_args->size;
     uint32_t coreid = pi_core_id(), start = 0, end = 0, start_glob = 0, end_glob = 0;
-    uint16_t nb_block = 2;
+    uint16_t nb_block = op_args->nb_block;
 
     start = (coreid * (size_block / pi_cl_cluster_nb_pe_cores()));
     end = (start + (size_block / pi_cl_cluster_nb_pe_cores()));
@@ -423,6 +426,7 @@ void test_cluster_operation(void)
     cl_arg.l2_in2 = l2_in2;
     cl_arg.l2_out = l2_out;
     cl_arg.l2_conv = l2_conv;
+    cl_arg.nb_block = MAT_SIZE / 64;
     /* Prepare cluster task and send it to cluster. */
     struct pi_cluster_task *task = pi_l2_malloc(sizeof(struct pi_cluster_task));
     if (task == NULL)
