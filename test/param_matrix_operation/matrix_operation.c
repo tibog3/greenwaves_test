@@ -223,13 +223,17 @@ void test_cluster_operation(void)
     printf("Close cluster after end of computation.\n");
     pi_cluster_close(&cluster_dev);
 
-    // mat_display(l2_out);
+
+    printf("\n\n Result of product : \n\n");
+    mat_display(l2_out, MAT_SIZE);
+    printf("\n\n Result of convolution : \n\n");
     mat_display(l2_conv, MAT_SIZE);
 
     // program end, free memory
     pi_l2_free(l2_out, m_size);
     pi_l2_free(l2_in1, m_size);
     pi_l2_free(l2_in2, m_size);
+    pi_l2_free(l2_conv, m_size);
 
     printf("\nCluster operation done !\n");
 
