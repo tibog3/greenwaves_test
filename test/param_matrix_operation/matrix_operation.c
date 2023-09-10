@@ -200,7 +200,6 @@ void cluster_addition(void *arg)
             if (!coreid)
             {
                 printf("Core %d requesting DMA transfer from l1_buffer to l2_out.\n", coreid);
-                mat_display(l1_in2, 64);
                 move_block(i_block, j_block, size_block, PI_CL_DMA_DIR_LOC2EXT, l2_out, l1_out);
                 move_block(i_block, j_block, size_block, PI_CL_DMA_DIR_LOC2EXT, l2_conv, l1_in2);
                 printf("Core %d : Transfer output done.\n", coreid);
@@ -209,30 +208,148 @@ void cluster_addition(void *arg)
     }
 
     // fill borders inside blocks (k-1 colun) and (k-1) line
-    for (uint16_t k = 0; k < nb_block; k++)
+    start = (coreid * (MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
+    end = (start + (MAT_SIZE / pi_cl_cluster_nb_pe_cores()));
+    for (uint16_t k = 1; k < nb_block; k++)
     {
         // get collumn
+        if (!coreid)
+        {
+            pi_cl_dma_copy_2d_t copy;
+            copy.dir = PI_CL_DMA_DIR_EXT2LOC;
+            copy.merge = 0;
+            copy.size = MAT_SIZE * 4 * sizeof(unsigned short);
+            copy.stride = MAT_SIZE * sizeof(unsigned short);
+            copy.length = 4 * sizeof(unsigned short);
+            copy.id = 0;
+            copy.ext = (uint32_t)(l2_out + k * size_block - 2);
+            copy.loc = (uint32_t)l1_out;
 
+            pi_cl_dma_memcpy_2d(&copy);
+            printf("Get column.\n");
+            pi_cl_dma_wait(&copy);
+        }
+        // compute
+        for (uint16_t i = start; i < end; i++)
+        {
+            for (uint16_t j = 0; j < 2; j++)
+            {
+                l1_in1[i * 2 + j] = l1_out[i * 4 + j] + 2 * l1_out[i * 4 + j + 1] + l1_out[i * 4 + j + 2];
+            }
+        }
         pi_cl_team_barrier(0);
 
+        for (uint16_t i = start; i < end; i++)
+        {
+            for (uint16_t j = 0; j < 2; j++)
+            {
+                if (i > 0 && i < MAT_SIZE - 1)
+                {
+                    // normal
+                    l1_in2[2 * i + j] = l1_in1[2 * (i + 1) + j] - l1_in1[2 * (i - 1) + j];
+                }
+                else if (i == 0)
+                {
+                    l1_in2[2 * i + j] = l1_in1[2 * i + j + 2];
+                }
+                else
+                {
+                    l1_in2[2 * i + j] = (-l1_in1[2 * i + j - 2]);
+                }
+            }
+        }
+        pi_cl_team_barrier(0);
+
+        // send it
+        if (!coreid)
+        {
+            pi_cl_dma_copy_2d_t copy;
+            copy.dir = PI_CL_DMA_DIR_LOC2EXT;
+            copy.merge = 0;
+            copy.size = MAT_SIZE * 2 * sizeof(unsigned short);
+            copy.stride = MAT_SIZE * sizeof(unsigned short);
+            copy.length = 2 * sizeof(unsigned short);
+            copy.id = 0;
+            copy.ext = (uint32_t)(l2_conv + k * size_block - 1);
+            copy.loc = (uint32_t)l1_in2;
+
+            pi_cl_dma_memcpy_2d(&copy);
+            printf("Send column\n");
+            pi_cl_dma_wait(&copy);
+        }
+        pi_cl_team_barrier(0);
+    }
+    
+    for (uint16_t k = 1; k < nb_block; k++)
+    {
+        // get line
+        
+        if (!coreid)
+        {
+            pi_cl_dma_copy_t copy;
+            copy.dir = PI_CL_DMA_DIR_EXT2LOC;
+            copy.merge = 0;
+            copy.size = 4 * MAT_SIZE * sizeof(unsigned short);
+            copy.id = 0;
+            copy.ext = (uint32_t)(l2_out + k * size_block * MAT_SIZE - 2 * MAT_SIZE);
+            copy.loc = (uint32_t)l1_out;
+
+            pi_cl_dma_memcpy(&copy);
+            printf("Get line.\n");
+            pi_cl_dma_wait(&copy);
+        }
+        
         // compute
 
         pi_cl_team_barrier(0);
+        for (uint16_t i = 0; i < 4; i++)
+        {
+            for (uint16_t j = start; j < end; j++)
+            {
+                if (j > 0 && j < MAT_SIZE - 1)
+                {
+                    // normal
+                    l1_in1[i * MAT_SIZE + j] = l1_out[i * MAT_SIZE + j - 1] + 2 * l1_out[i * MAT_SIZE + j] + l1_out[i * MAT_SIZE + j];
+                }
+                else if (j == 0)
+                {
+                    l1_in1[i * MAT_SIZE + j] = 2 * l1_out[i * MAT_SIZE + j] + l1_out[i * MAT_SIZE + j];
+                }
+                else
+                {
+                    l1_in1[i * MAT_SIZE + j] = l1_out[i * MAT_SIZE + j - 1] + 2 * l1_out[i * MAT_SIZE + j];
+                }
+            }
+        }
+        pi_cl_team_barrier(0);
 
-        // send it
-    }
-
-    for (uint16_t k = 0; k < nb_block; k++)
-    {
-        // get line
+        for (uint16_t i = 0; i < 2; i++)
+        {
+            for (uint16_t j = start; j < end; j++)
+            {
+                l1_in2[MAT_SIZE * i + j] = l1_in1[MAT_SIZE * (i + 2) + j] - l1_in1[MAT_SIZE * i + j];
+            }
+        }
 
         pi_cl_team_barrier(0);
 
-        // comute
-
-        pi_cl_team_barrier(0);
-
         // send it
+        if (!coreid)
+        {
+            pi_cl_dma_copy_t copy;
+            copy.dir = PI_CL_DMA_DIR_LOC2EXT;
+            copy.merge = 0;
+            copy.size = 2 * MAT_SIZE * sizeof(unsigned short);
+            copy.id = 0;
+            copy.ext = (uint32_t)(l2_conv + k * size_block * MAT_SIZE - MAT_SIZE);
+            copy.loc = (uint32_t)l1_in2;
+            // mat_display(l1_in2);
+            mat_display(l1_in2, 16);
+
+            pi_cl_dma_memcpy(&copy);
+            printf("Send line.\n");
+            pi_cl_dma_wait(&copy);
+        }
     }
 }
 
@@ -328,8 +445,8 @@ void test_cluster_operation(void)
     printf("Close cluster after end of computation.\n");
     pi_cluster_close(&cluster_dev);
 
-    //mat_display(l2_out);
-    //mat_display(l2_conv);
+    // mat_display(l2_out);
+    mat_display(l2_conv, MAT_SIZE);
 
     pi_l2_free(l2_out, m_size);
     pi_l2_free(l2_in1, m_size);
