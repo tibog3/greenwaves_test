@@ -3,6 +3,7 @@
 APP              = test
 # App sources
 APP_SRCS         = matrix_operation.c
+APP_SRCS         += utils.c
 # App includes
 APP_INC	         =
 # Linker flags
