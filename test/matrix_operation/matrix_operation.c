@@ -209,18 +209,18 @@ void cluster_multiplication(void *arg)
     }
     /* Barrier synchronisation to wait for all cores. */
     pi_cl_team_barrier(0);
-    // result of convolution is (SIZE_MAT - 2) x (SIZE_MAT-2)
+    // result of convolution
     for(uint16_t i = start; i<end; i++){
         for(uint16_t j=0; j<MAT_SIZE; j++){
             if(i>0 && i<MAT_SIZE-1){
                 // normal
-                l1_in2[MAT_SIZE*i+j] = l1_in1[MAT_SIZE*i+j+1] - l1_in1[MAT_SIZE*i+j-1];
+                l1_in2[MAT_SIZE*i+j] = l1_in1[MAT_SIZE*(i+1)+j] - l1_in1[MAT_SIZE*(i-1)+j];
             }
             else if (i==0){
-                l1_in2[MAT_SIZE*i+j] = l1_in1[MAT_SIZE*i+j+1];
+                l1_in2[MAT_SIZE*i+j] = l1_in1[MAT_SIZE*(i+1)+j];
             }
             else{
-                l1_in2[MAT_SIZE*i+j] = (-l1_in1[MAT_SIZE*i+j-1]);
+                l1_in2[MAT_SIZE*i+j] = (-l1_in1[MAT_SIZE*(i-1)+j]);
             }
             
             
@@ -290,7 +290,7 @@ void test_cluster_operation(void)
     for (uint32_t i=0; i<(MAT_SIZE*MAT_SIZE); i++)
     {
         l2_in1[i] = 1;
-        l2_in2[i] = 1;
+        l2_in2[i] = i%43;
         l2_out[i] = 1;
     }
     
